@@ -1,0 +1,663 @@
+/*
+ * Copyright (c) 2026 Homelab Control Plane contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * This Prisma schema defines the database models and generator configuration for the API service.
+ */
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum HealthStatus {
+  OK
+  WARN
+  CRIT
+  UNKNOWN
+}
+
+enum CheckType {
+  HTTP
+  TCP
+  ICMP
+}
+
+enum CheckResultStatus {
+  UP
+  DOWN
+  WARN
+  UNKNOWN
+}
+
+enum AlertRuleType {
+  CHECK_DOWN_CONSECUTIVE
+  HOST_OFFLINE
+  DISK_USAGE_GT
+  RULE_ENGINE
+}
+
+enum AlertEventStatus {
+  PENDING
+  FIRING
+  RESOLVED
+}
+
+enum NotificationType {
+  WEBHOOK
+  DISCORD
+}
+
+enum EventSeverity {
+  INFO
+  WARN
+  ERROR
+}
+
+enum IntegrationType {
+  PROXMOX
+}
+
+enum ToolProposalStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXECUTED
+  FAILED
+}
+
+enum AgentStatus {
+  ONLINE
+  OFFLINE
+  REVOKED
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  TOOL
+  SYSTEM
+}
+
+enum SilenceTargetType {
+  ALERT_RULE
+  CHECK
+  HOST
+  SERVICE
+  ALERT_EVENT
+}
+
+enum AgentInstallAction {
+  INSTALL
+  ROLLBACK
+}
+
+enum AgentInstallStatus {
+  PENDING_APPROVAL
+  APPROVED_AWAITING_EXECUTION
+  RUNNING
+  SUCCEEDED
+  FAILED
+  DENIED
+}
+
+enum AgentRecoveryClaimStatus {
+  PENDING_APPROVAL
+  APPROVED_PENDING_AGENT
+  DENIED
+  COMPLETED
+}
+
+enum RecoveryKeyAlg {
+  ED25519
+}
+
+model User {
+  id                            String                @id @default(uuid()) @db.Uuid
+  email                         String                @unique
+  passwordHash                  String?
+  displayName                   String
+  active                        Boolean               @default(true)
+  createdAt                     DateTime              @default(now())
+  updatedAt                     DateTime              @updatedAt
+  enrollmentTokens              EnrollmentToken[]     @relation("EnrollmentCreator")
+  silences                      Silence[]             @relation("SilenceCreator")
+  proposalsRequested            McpToolProposal[]     @relation("ProposalRequester")
+  proposalsApproved             McpToolProposal[]     @relation("ProposalApprover")
+  auditEvents                   AuditEvent[]
+  aiConversations               AiConversation[]
+  opsMemories                   OpsMemory[]
+  discoveryRuns                 ServiceDiscoveryRun[] @relation("DiscoveryRunTriggerUser")
+  agentInstallRequestsRequested AgentInstallRequest[] @relation("AgentInstallRequestedBy")
+  agentInstallRequestsApproved  AgentInstallRequest[] @relation("AgentInstallApprovedBy")
+  agentInstallRequestsDenied    AgentInstallRequest[] @relation("AgentInstallDeniedBy")
+  approvedRecoveryClaims        AgentRecoveryClaim[]  @relation("AgentRecoveryClaimApprover")
+  deniedRecoveryClaims          AgentRecoveryClaim[]  @relation("AgentRecoveryClaimDenier")
+  acknowledgedAlertEvents       AlertEvent[]          @relation("AlertAcknowledgements")
+}
+
+model Host {
+  id                   String            @id @default(uuid()) @db.Uuid
+  hostname             String
+  resolvedPrimaryIp    String?
+  tags                 String[]
+  status               HealthStatus      @default(UNKNOWN)
+  cpuPct               Float             @default(0)
+  memPct               Float             @default(0)
+  diskPct              Float             @default(0)
+  lastSeenAt           DateTime?
+  agentVersion         String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  agent                Agent?
+  facts                HostFact[]
+  serviceInstances     ServiceInstance[]
+  checks               Check[]
+  alertEvents          AlertEvent[]
+  events               Event[]
+  agentInstallRequests AgentInstallRequest[]
+
+  @@index([hostname])
+  @@index([status])
+  @@index([resolvedPrimaryIp])
+}
+
+model HostFact {
+  id        String   @id @default(uuid()) @db.Uuid
+  hostId    String   @db.Uuid
+  snapshot  Json
+  createdAt DateTime @default(now())
+  host      Host     @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  @@index([hostId, createdAt])
+}
+
+model Service {
+  id           String              @id @default(uuid()) @db.Uuid
+  name         String
+  tags         String[]
+  status       HealthStatus        @default(UNKNOWN)
+  source       String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  instances    ServiceInstance[]
+  dependencies ServiceDependency[] @relation("ServiceDependencies")
+  dependents   ServiceDependency[] @relation("ServiceDependents")
+  checks       Check[]
+  alertEvents  AlertEvent[]
+  events       Event[]
+
+  @@unique([name, source])
+  @@index([status])
+}
+
+model ServiceInstance {
+  id         String       @id @default(uuid()) @db.Uuid
+  serviceId  String       @db.Uuid
+  hostId     String?      @db.Uuid
+  name       String
+  status     HealthStatus @default(UNKNOWN)
+  endpoint   String?
+  metadata   Json?
+  lastSeenAt DateTime?
+  service    Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  host       Host?        @relation(fields: [hostId], references: [id], onDelete: SetNull)
+
+  @@unique([serviceId, hostId, name])
+  @@index([serviceId])
+  @@index([hostId])
+}
+
+model ServiceDependency {
+  id                 String   @id @default(uuid()) @db.Uuid
+  serviceId          String   @db.Uuid
+  dependsOnServiceId String   @db.Uuid
+  createdAt          DateTime @default(now())
+  service            Service  @relation("ServiceDependencies", fields: [serviceId], references: [id], onDelete: Cascade)
+  dependsOnService   Service  @relation("ServiceDependents", fields: [dependsOnServiceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, dependsOnServiceId])
+}
+
+model Check {
+  id             String        @id @default(uuid()) @db.Uuid
+  name           String
+  type           CheckType
+  target         String
+  expectedStatus Int?
+  intervalSec    Int
+  timeoutMs      Int
+  keyword        String?
+  enabled        Boolean       @default(true)
+  hostId         String?       @db.Uuid
+  serviceId      String?       @db.Uuid
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  host           Host?         @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  service        Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  results        CheckResult[]
+  alertEvents    AlertEvent[]
+
+  @@index([enabled])
+  @@index([hostId])
+  @@index([serviceId])
+}
+
+model CheckResult {
+  id           String            @id @default(uuid()) @db.Uuid
+  checkId      String            @db.Uuid
+  status       CheckResultStatus
+  latencyMs    Int?
+  httpStatus   Int?
+  errorMessage String?
+  details      Json?
+  checkedAt    DateTime          @default(now())
+  check        Check             @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  @@index([checkId, checkedAt])
+}
+
+model AlertRule {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  type        AlertRuleType
+  specVersion Int           @default(1)
+  config      Json
+  enabled     Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  alertEvents AlertEvent[]
+
+  @@index([enabled])
+}
+
+model AlertEvent {
+  id                   String           @id @default(uuid()) @db.Uuid
+  ruleId               String           @db.Uuid
+  checkId              String?          @db.Uuid
+  hostId               String?          @db.Uuid
+  serviceId            String?          @db.Uuid
+  fingerprint          String
+  groupKey             String?
+  status               AlertEventStatus @default(PENDING)
+  severity             EventSeverity    @default(ERROR)
+  message              String
+  labels               Json?
+  lastValue            Json?
+  startedAt            DateTime         @default(now())
+  lastMatchedAt        DateTime?
+  resolvedAt           DateTime?
+  acknowledgedAt       DateTime?
+  acknowledgedByUserId String?          @db.Uuid
+  lastEvaluatedAt      DateTime         @default(now())
+  lastNotifiedAt       DateTime?
+  rule                 AlertRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  check                Check?           @relation(fields: [checkId], references: [id], onDelete: SetNull)
+  host                 Host?            @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  service              Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  acknowledgedByUser   User?            @relation("AlertAcknowledgements", fields: [acknowledgedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([fingerprint])
+  @@index([status])
+  @@index([ruleId, status])
+  @@index([acknowledgedAt])
+}
+
+model Silence {
+  id              String            @id @default(uuid()) @db.Uuid
+  targetType      SilenceTargetType
+  targetId        String
+  reason          String
+  startsAt        DateTime
+  endsAt          DateTime
+  createdByUserId String            @db.Uuid
+  createdAt       DateTime          @default(now())
+  createdBy       User              @relation("SilenceCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId])
+  @@index([startsAt, endsAt])
+}
+
+model NotificationRoute {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String
+  type            NotificationType
+  enabled         Boolean          @default(true)
+  configEncrypted String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Event {
+  id        String        @id @default(uuid()) @db.Uuid
+  type      String
+  severity  EventSeverity @default(INFO)
+  hostId    String?       @db.Uuid
+  serviceId String?       @db.Uuid
+  checkId   String?       @db.Uuid
+  message   String
+  payload   Json?
+  createdAt DateTime      @default(now())
+  host      Host?         @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  service   Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([hostId])
+  @@index([serviceId])
+}
+
+model Agent {
+  id                   String               @id @default(uuid()) @db.Uuid
+  hostId               String?              @unique @db.Uuid
+  displayName          String?
+  endpoint             String
+  mcpEndpoint          String
+  capabilities         Json?
+  tokenHash            String
+  tokenEncrypted       String
+  recoveryKeyAlg       RecoveryKeyAlg?
+  recoveryKeyFingerprint String?           @unique
+  recoveryPublicKey    String?
+  lastSeenAt           DateTime?
+  status               AgentStatus          @default(OFFLINE)
+  version              String?
+  enrolledAt           DateTime             @default(now())
+  revokedAt            DateTime?
+  host                 Host?                @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  proposals            McpToolProposal[]
+  auditEventsAsActor   AuditEvent[]         @relation("AuditActorAgent")
+  recoveryClaims       AgentRecoveryClaim[]
+
+  @@index([status])
+}
+
+model AgentRecoveryClaim {
+  id                        String                   @id @default(uuid()) @db.Uuid
+  recoveryKeyAlg            RecoveryKeyAlg
+  recoveryKeyFingerprint    String                   @unique
+  recoveryPublicKey         String
+  hostname                  String
+  primaryIp                 String?
+  displayName               String?
+  endpoint                  String
+  mcpEndpoint               String
+  agentVersion              String?
+  tags                      String[]
+  status                    AgentRecoveryClaimStatus @default(PENDING_APPROVAL)
+  pollTokenHash             String?
+  approvedCredentialsEncrypted String?
+  denialReason              String?
+  agentId                   String?                  @db.Uuid
+  approvedByUserId          String?                  @db.Uuid
+  deniedByUserId            String?                  @db.Uuid
+  firstSeenAt               DateTime                 @default(now())
+  lastSeenAt                DateTime                 @default(now())
+  approvedAt                DateTime?
+  deniedAt                  DateTime?
+  completedAt               DateTime?
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  agent                     Agent?                   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  approvedBy                User?                    @relation("AgentRecoveryClaimApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  deniedBy                  User?                    @relation("AgentRecoveryClaimDenier", fields: [deniedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([lastSeenAt])
+}
+
+model EnrollmentToken {
+  id              String    @id @default(uuid()) @db.Uuid
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  createdByUserId String    @db.Uuid
+  createdBy       User      @relation("EnrollmentCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model McpToolProposal {
+  id                  String             @id @default(uuid()) @db.Uuid
+  requestedByUserId   String             @db.Uuid
+  agentId             String             @db.Uuid
+  toolName            String
+  params              Json
+  reason              String
+  status              ToolProposalStatus @default(PENDING)
+  highRiskConfirmed   Boolean            @default(false)
+  approvalRequestedAt DateTime           @default(now())
+  approvedByUserId    String?            @db.Uuid
+  approvedAt          DateTime?
+  deniedAt            DateTime?
+  executedAt          DateTime?
+  result              Json?
+  error               String?
+  requestedBy         User               @relation("ProposalRequester", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  approvedBy          User?              @relation("ProposalApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  agent               Agent              @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([agentId])
+}
+
+model AgentInstallRequest {
+  id                    String                @id @default(uuid()) @db.Uuid
+  action                AgentInstallAction
+  status                AgentInstallStatus    @default(PENDING_APPROVAL)
+  requestedByUserId     String                @db.Uuid
+  approvedByUserId      String?               @db.Uuid
+  deniedByUserId        String?               @db.Uuid
+  targetHostId          String?               @db.Uuid
+  targetHost            String
+  targetPort            Int                   @default(22)
+  targetUsername        String
+  authMode              String
+  binaryVersion         String
+  binaryUrlResolved     String?
+  controlPlaneUrl       String
+  mcpBind               String                @default("0.0.0.0")
+  mcpPort               Int                   @default(8081)
+  mcpAdvertiseUrl       String
+  allowedOrigins        String                @default("http://localhost:5173")
+  allowInsecureDev      Boolean               @default(true)
+  replaceExisting       Boolean               @default(true)
+  installPath           String                @default("/usr/local/bin/labagent")
+  serviceName           String                @default("labagent")
+  rollbackOfRequestId   String?               @db.Uuid
+  resultCode            String?
+  resultSummary         String?
+  errorMessageSanitized String?
+  agentIdLinked         String?               @db.Uuid
+  approvedAt            DateTime?
+  startedAt             DateTime?
+  finishedAt            DateTime?
+  deniedAt              DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  requestedBy           User                  @relation("AgentInstallRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  approvedBy            User?                 @relation("AgentInstallApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  deniedBy              User?                 @relation("AgentInstallDeniedBy", fields: [deniedByUserId], references: [id], onDelete: SetNull)
+  targetHostEntity      Host?                 @relation(fields: [targetHostId], references: [id], onDelete: SetNull)
+  rollbackOf            AgentInstallRequest?  @relation("AgentInstallRollback", fields: [rollbackOfRequestId], references: [id], onDelete: SetNull)
+  rollbackRequests      AgentInstallRequest[] @relation("AgentInstallRollback")
+  logs                  AgentInstallLog[]
+
+  @@index([status])
+  @@index([requestedByUserId])
+  @@index([targetHostId])
+  @@index([createdAt])
+}
+
+model AgentInstallLog {
+  id        String              @id @default(uuid()) @db.Uuid
+  requestId String              @db.Uuid
+  seq       Int
+  phase     String
+  level     String
+  message   String
+  createdAt DateTime            @default(now())
+  request   AgentInstallRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, seq])
+}
+
+model AuditEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorUserId  String?  @db.Uuid
+  actorAgentId String?  @db.Uuid
+  action       String
+  targetType   String
+  targetId     String?
+  paramsJson   Json?
+  resultJson   Json?
+  success      Boolean
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  actorUser    User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorAgent   Agent?   @relation("AuditActorAgent", fields: [actorAgentId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([action])
+}
+
+model Integration {
+  id         String                 @id @default(uuid()) @db.Uuid
+  name       String
+  type       IntegrationType
+  enabled    Boolean                @default(true)
+  config     Json
+  lastSyncAt DateTime?
+  lastStatus String?
+  lastError  String?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  credential IntegrationCredential?
+}
+
+model IntegrationCredential {
+  id            String      @id @default(uuid()) @db.Uuid
+  integrationId String      @unique @db.Uuid
+  encryptedBlob String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+}
+
+model AiConversation {
+  id                     String      @id @default(uuid()) @db.Uuid
+  userId                 String      @db.Uuid
+  title                  String
+  retentionDays          Int         @default(30)
+  memorySummary          Json?
+  memoryCursorMessageId  String?     @db.Uuid
+  memoryCursorCreatedAt  DateTime?
+  memorySummaryUpdatedAt DateTime?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  user                   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages               AiMessage[]
+}
+
+model AiMessage {
+  id             String         @id @default(uuid()) @db.Uuid
+  conversationId String         @db.Uuid
+  role           AiMessageRole
+  content        String
+  toolName       String?
+  toolParams     Json?
+  toolResult     Json?
+  createdAt      DateTime       @default(now())
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model OpsMemory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  key       String
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+}
+
+model ServiceDiscoveryCatalog {
+  id        String   @id
+  entries   Json
+  source    String
+  expiresAt DateTime
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ServiceDiscoveryConfig {
+  id                      String   @id
+  subnetEnabled           Boolean  @default(false)
+  subnetCidrs             String[]
+  includeAutoLocalCidrs   Boolean  @default(false)
+  includeCommonWebPorts   Boolean  @default(true)
+  subnetMaxHosts          Int      @default(512)
+  subnetConcurrency       Int      @default(24)
+  subnetConnectTimeoutMs  Int      @default(750)
+  subnetToolCallTimeoutMs Int      @default(120000)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model ServiceDiscoveryRun {
+  id                String    @id @default(uuid()) @db.Uuid
+  trigger           String
+  triggeredByUserId String?   @db.Uuid
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+  status            String
+  hostCount         Int       @default(0)
+  probeCount        Int       @default(0)
+  detectedCount     Int       @default(0)
+  upsertCount       Int       @default(0)
+  errorCount        Int       @default(0)
+  summary           Json?
+  error             String?
+  triggeredByUser   User?     @relation("DiscoveryRunTriggerUser", fields: [triggeredByUserId], references: [id], onDelete: SetNull)
+
+  @@index([startedAt])
+  @@index([status])
+}
+
+model DashboardAgentConfig {
+  id                   String   @id
+  enabled              Boolean  @default(true)
+  intervalSec          Int      @default(300)
+  escalateCreateEvents Boolean  @default(true)
+  personality          String   @default("")
+  updatedByUserId      String?  @db.Uuid
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model DashboardAgentRun {
+  id                String    @id @default(uuid()) @db.Uuid
+  trigger           String
+  triggeredByUserId String?   @db.Uuid
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+  status            String
+  findingCount      Int       @default(0)
+  highPriorityCount Int       @default(0)
+  highlights        Json?
+  summary           Json?
+  error             String?
+
+  @@index([startedAt])
+  @@index([status])
+}

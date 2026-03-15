@@ -1,0 +1,40 @@
+# Copyright (c) 2026 Homelab Control Plane contributors
+# SPDX-License-Identifier: MIT
+#
+# This configuration file defines the bug report workflow or settings.
+name: Bug report
+description: Report a reproducible defect in the control plane, agent, or contributor workflow.
+title: '[Bug] '
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the defect and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: List exact steps, commands, and environment details.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Explain operator impact, regression risk, or security relevance.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: Include failing tests, logs, screenshots, or other supporting evidence.

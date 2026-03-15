@@ -1,0 +1,874 @@
+/*
+ * Copyright (c) 2026 Homelab Control Plane contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * This stylesheet defines the styles visual presentation.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --theme-font-sans: 'Space Grotesk';
+  --theme-font-display: 'Space Grotesk';
+  --theme-font-mono: 'IBM Plex Mono';
+
+  --app-light-background: 220 20% 97%;
+  --app-light-foreground: 220 15% 12%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 220 15% 12%;
+  --app-light-primary: 205 92% 44%;
+  --app-light-primary-foreground: 210 40% 98%;
+  --app-light-secondary: 180 14% 92%;
+  --app-light-secondary-foreground: 220 15% 18%;
+  --app-light-muted: 216 14% 89%;
+  --app-light-muted-foreground: 220 8% 35%;
+  --app-light-border: 220 18% 82%;
+  --app-light-input: 220 18% 82%;
+  --app-light-ring: 205 92% 44%;
+
+  --app-dark-background: 224 24% 9%;
+  --app-dark-foreground: 210 40% 96%;
+  --app-dark-card: 222 21% 13%;
+  --app-dark-card-foreground: 210 40% 96%;
+  --app-dark-primary: 191 100% 43%;
+  --app-dark-primary-foreground: 210 40% 98%;
+  --app-dark-secondary: 221 18% 18%;
+  --app-dark-secondary-foreground: 210 40% 96%;
+  --app-dark-muted: 222 16% 17%;
+  --app-dark-muted-foreground: 216 14% 71%;
+  --app-dark-border: 220 17% 25%;
+  --app-dark-input: 220 17% 25%;
+  --app-dark-ring: 191 100% 43%;
+
+  --background: var(--app-light-background);
+  --foreground: var(--app-light-foreground);
+  --card: var(--app-light-card);
+  --card-foreground: var(--app-light-card-foreground);
+  --primary: var(--app-light-primary);
+  --primary-foreground: var(--app-light-primary-foreground);
+  --secondary: var(--app-light-secondary);
+  --secondary-foreground: var(--app-light-secondary-foreground);
+  --muted: var(--app-light-muted);
+  --muted-foreground: var(--app-light-muted-foreground);
+  --border: var(--app-light-border);
+  --input: var(--app-light-input);
+  --ring: var(--app-light-ring);
+
+  --theme-card-alpha: 1;
+  --theme-border-alpha: 0.86;
+  --theme-card-blur: 0px;
+  --theme-radius-md: 0.6rem;
+  --theme-radius-lg: 0.85rem;
+  --theme-radius-xl: 1.1rem;
+  --theme-shadow-color: var(--primary);
+  --theme-shadow-alpha: 0.16;
+  --theme-button-shadow-alpha: 0.24;
+  --theme-grid-size: 88px;
+  --theme-grid-opacity: 0.04;
+  --theme-grid-color: var(--ring);
+  --theme-atmosphere-opacity: 1;
+  --theme-glow-primary-alpha: 0.16;
+  --theme-glow-secondary-alpha: 0.12;
+  --theme-glow-tertiary-alpha: 0.1;
+  --theme-panel-highlight-alpha: 0.12;
+  --theme-panel-outline-alpha: 0.08;
+  --theme-input-alpha: 0.76;
+  --theme-label-letter-spacing: 0.14em;
+  --theme-table-header-alpha: 0.58;
+  --theme-row-hover-alpha: 0.3;
+  --theme-badge-alpha: 0.2;
+}
+
+:root:not([data-theme-preset]),
+:root[data-theme-preset='default'],
+:root[data-theme-preset='custom'] {
+  --theme-font-sans: 'Space Grotesk';
+  --theme-font-display: 'Space Grotesk';
+  --theme-font-mono: 'IBM Plex Mono';
+  --theme-grid-size: 88px;
+  --theme-grid-opacity: 0.04;
+  --theme-atmosphere-opacity: 1;
+}
+
+:root[data-theme-preset='starship-ops'] {
+  --theme-font-sans: 'Space Grotesk';
+  --theme-font-display: 'Oxanium';
+  --theme-font-mono: 'IBM Plex Mono';
+  --theme-grid-size: 120px;
+  --theme-grid-opacity: 0.03;
+  --theme-atmosphere-opacity: 0.9;
+  --theme-panel-highlight-alpha: 0.08;
+}
+
+:root[data-theme-preset='luxury-ai'] {
+  --theme-font-sans: 'Instrument Sans';
+  --theme-font-display: 'Instrument Serif';
+  --theme-font-mono: 'IBM Plex Mono';
+  --theme-grid-size: 144px;
+  --theme-grid-opacity: 0.02;
+  --theme-atmosphere-opacity: 0.88;
+  --theme-panel-highlight-alpha: 0.16;
+}
+
+:root[data-theme-preset='neon-grid'] {
+  --theme-font-sans: 'Space Grotesk';
+  --theme-font-display: 'Rajdhani';
+  --theme-font-mono: 'IBM Plex Mono';
+  --theme-grid-size: 44px;
+  --theme-grid-opacity: 0.09;
+  --theme-atmosphere-opacity: 1.08;
+  --theme-panel-highlight-alpha: 0.12;
+}
+
+:root[data-theme-preset='holographic-desk'] {
+  --theme-font-sans: 'Space Grotesk';
+  --theme-font-display: 'Chakra Petch';
+  --theme-font-mono: 'IBM Plex Mono';
+  --theme-grid-size: 60px;
+  --theme-grid-opacity: 0.05;
+  --theme-atmosphere-opacity: 1.02;
+  --theme-panel-highlight-alpha: 0.18;
+}
+
+:root[data-theme-preset='imperial-tactical'] {
+  --theme-font-sans: 'IBM Plex Sans Condensed';
+  --theme-font-display: 'Oxanium';
+  --theme-font-mono: 'IBM Plex Mono';
+  --theme-grid-size: 72px;
+  --theme-grid-opacity: 0.035;
+  --theme-atmosphere-opacity: 0.92;
+  --theme-panel-highlight-alpha: 0.09;
+}
+
+:root[data-theme-preset='matrix-lattice'] {
+  --theme-font-sans: 'IBM Plex Sans';
+  --theme-font-display: 'IBM Plex Sans';
+  --theme-font-mono: 'IBM Plex Mono';
+  --theme-grid-size: 40px;
+  --theme-grid-opacity: 0.08;
+  --theme-atmosphere-opacity: 0.95;
+  --theme-panel-highlight-alpha: 0.1;
+}
+
+.dark {
+  --background: var(--app-dark-background);
+  --foreground: var(--app-dark-foreground);
+  --card: var(--app-dark-card);
+  --card-foreground: var(--app-dark-card-foreground);
+  --primary: var(--app-dark-primary);
+  --primary-foreground: var(--app-dark-primary-foreground);
+  --secondary: var(--app-dark-secondary);
+  --secondary-foreground: var(--app-dark-secondary-foreground);
+  --muted: var(--app-dark-muted);
+  --muted-foreground: var(--app-dark-muted-foreground);
+  --border: var(--app-dark-border);
+  --input: var(--app-dark-input);
+  --ring: var(--app-dark-ring);
+}
+
+:root:not([data-theme-palette]),
+:root[data-theme-palette='ocean'] {
+  --app-light-background: 220 20% 97%;
+  --app-light-foreground: 220 15% 12%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 220 15% 12%;
+  --app-light-primary: 205 92% 44%;
+  --app-light-primary-foreground: 210 40% 98%;
+  --app-light-secondary: 180 14% 92%;
+  --app-light-secondary-foreground: 220 15% 18%;
+  --app-light-muted: 216 14% 89%;
+  --app-light-muted-foreground: 220 8% 35%;
+  --app-light-border: 220 18% 82%;
+  --app-light-input: 220 18% 82%;
+  --app-light-ring: 205 92% 44%;
+
+  --app-dark-background: 224 24% 9%;
+  --app-dark-foreground: 210 40% 96%;
+  --app-dark-card: 222 21% 13%;
+  --app-dark-card-foreground: 210 40% 96%;
+  --app-dark-primary: 191 100% 43%;
+  --app-dark-primary-foreground: 210 40% 98%;
+  --app-dark-secondary: 221 18% 18%;
+  --app-dark-secondary-foreground: 210 40% 96%;
+  --app-dark-muted: 222 16% 17%;
+  --app-dark-muted-foreground: 216 14% 71%;
+  --app-dark-border: 220 17% 25%;
+  --app-dark-input: 220 17% 25%;
+  --app-dark-ring: 191 100% 43%;
+}
+
+:root[data-theme-palette='forest'] {
+  --app-light-background: 156 26% 96%;
+  --app-light-foreground: 154 24% 12%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 154 24% 12%;
+  --app-light-primary: 160 74% 36%;
+  --app-light-primary-foreground: 0 0% 100%;
+  --app-light-secondary: 155 18% 90%;
+  --app-light-secondary-foreground: 154 26% 18%;
+  --app-light-muted: 156 16% 88%;
+  --app-light-muted-foreground: 155 10% 34%;
+  --app-light-border: 156 18% 79%;
+  --app-light-input: 156 18% 79%;
+  --app-light-ring: 160 74% 36%;
+
+  --app-dark-background: 158 28% 8%;
+  --app-dark-foreground: 150 35% 95%;
+  --app-dark-card: 157 23% 12%;
+  --app-dark-card-foreground: 150 35% 95%;
+  --app-dark-primary: 160 70% 47%;
+  --app-dark-primary-foreground: 0 0% 100%;
+  --app-dark-secondary: 157 18% 17%;
+  --app-dark-secondary-foreground: 150 35% 95%;
+  --app-dark-muted: 157 15% 16%;
+  --app-dark-muted-foreground: 154 14% 70%;
+  --app-dark-border: 156 16% 23%;
+  --app-dark-input: 156 16% 23%;
+  --app-dark-ring: 160 70% 47%;
+}
+
+:root[data-theme-palette='sunset'] {
+  --app-light-background: 30 48% 97%;
+  --app-light-foreground: 15 24% 12%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 15 24% 12%;
+  --app-light-primary: 18 93% 46%;
+  --app-light-primary-foreground: 0 0% 100%;
+  --app-light-secondary: 28 40% 90%;
+  --app-light-secondary-foreground: 15 27% 18%;
+  --app-light-muted: 30 35% 88%;
+  --app-light-muted-foreground: 15 10% 35%;
+  --app-light-border: 24 32% 79%;
+  --app-light-input: 24 32% 79%;
+  --app-light-ring: 18 93% 46%;
+
+  --app-dark-background: 16 30% 9%;
+  --app-dark-foreground: 25 45% 95%;
+  --app-dark-card: 16 28% 13%;
+  --app-dark-card-foreground: 25 45% 95%;
+  --app-dark-primary: 24 98% 56%;
+  --app-dark-primary-foreground: 16 30% 10%;
+  --app-dark-secondary: 16 24% 19%;
+  --app-dark-secondary-foreground: 25 45% 95%;
+  --app-dark-muted: 16 22% 17%;
+  --app-dark-muted-foreground: 24 14% 72%;
+  --app-dark-border: 16 20% 25%;
+  --app-dark-input: 16 20% 25%;
+  --app-dark-ring: 24 98% 56%;
+}
+
+:root[data-theme-palette='graphite'] {
+  --app-light-background: 210 15% 96%;
+  --app-light-foreground: 220 14% 14%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 220 14% 14%;
+  --app-light-primary: 215 16% 33%;
+  --app-light-primary-foreground: 0 0% 100%;
+  --app-light-secondary: 210 14% 90%;
+  --app-light-secondary-foreground: 220 14% 22%;
+  --app-light-muted: 210 12% 87%;
+  --app-light-muted-foreground: 215 7% 38%;
+  --app-light-border: 214 14% 80%;
+  --app-light-input: 214 14% 80%;
+  --app-light-ring: 215 16% 33%;
+
+  --app-dark-background: 220 16% 8%;
+  --app-dark-foreground: 210 18% 93%;
+  --app-dark-card: 220 15% 12%;
+  --app-dark-card-foreground: 210 18% 93%;
+  --app-dark-primary: 212 18% 72%;
+  --app-dark-primary-foreground: 220 18% 10%;
+  --app-dark-secondary: 220 14% 17%;
+  --app-dark-secondary-foreground: 210 18% 93%;
+  --app-dark-muted: 220 13% 16%;
+  --app-dark-muted-foreground: 214 10% 70%;
+  --app-dark-border: 218 12% 23%;
+  --app-dark-input: 218 12% 23%;
+  --app-dark-ring: 212 18% 72%;
+}
+
+:root[data-theme-palette='aurora'] {
+  --app-light-background: 198 42% 97%;
+  --app-light-foreground: 214 26% 13%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 214 26% 13%;
+  --app-light-primary: 187 88% 39%;
+  --app-light-primary-foreground: 0 0% 100%;
+  --app-light-secondary: 195 28% 90%;
+  --app-light-secondary-foreground: 214 24% 19%;
+  --app-light-muted: 198 22% 88%;
+  --app-light-muted-foreground: 212 11% 36%;
+  --app-light-border: 199 23% 80%;
+  --app-light-input: 199 23% 80%;
+  --app-light-ring: 187 88% 39%;
+
+  --app-dark-background: 214 37% 9%;
+  --app-dark-foreground: 190 34% 95%;
+  --app-dark-card: 213 31% 13%;
+  --app-dark-card-foreground: 190 34% 95%;
+  --app-dark-primary: 186 90% 50%;
+  --app-dark-primary-foreground: 212 32% 10%;
+  --app-dark-secondary: 213 25% 18%;
+  --app-dark-secondary-foreground: 190 34% 95%;
+  --app-dark-muted: 213 22% 17%;
+  --app-dark-muted-foreground: 198 15% 71%;
+  --app-dark-border: 212 21% 24%;
+  --app-dark-input: 212 21% 24%;
+  --app-dark-ring: 186 90% 50%;
+}
+
+:root[data-theme-palette='ember'] {
+  --app-light-background: 24 54% 97%;
+  --app-light-foreground: 16 28% 12%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 16 28% 12%;
+  --app-light-primary: 10 84% 47%;
+  --app-light-primary-foreground: 0 0% 100%;
+  --app-light-secondary: 24 40% 90%;
+  --app-light-secondary-foreground: 14 28% 19%;
+  --app-light-muted: 24 30% 87%;
+  --app-light-muted-foreground: 14 11% 35%;
+  --app-light-border: 22 30% 79%;
+  --app-light-input: 22 30% 79%;
+  --app-light-ring: 10 84% 47%;
+
+  --app-dark-background: 12 30% 9%;
+  --app-dark-foreground: 28 44% 95%;
+  --app-dark-card: 12 28% 13%;
+  --app-dark-card-foreground: 28 44% 95%;
+  --app-dark-primary: 16 95% 57%;
+  --app-dark-primary-foreground: 14 30% 11%;
+  --app-dark-secondary: 12 24% 19%;
+  --app-dark-secondary-foreground: 28 44% 95%;
+  --app-dark-muted: 12 22% 17%;
+  --app-dark-muted-foreground: 24 16% 71%;
+  --app-dark-border: 12 20% 25%;
+  --app-dark-input: 12 20% 25%;
+  --app-dark-ring: 16 95% 57%;
+}
+
+:root[data-theme-palette='arctic'] {
+  --app-light-background: 205 38% 97%;
+  --app-light-foreground: 211 24% 13%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 211 24% 13%;
+  --app-light-primary: 199 82% 41%;
+  --app-light-primary-foreground: 0 0% 100%;
+  --app-light-secondary: 203 23% 90%;
+  --app-light-secondary-foreground: 211 23% 19%;
+  --app-light-muted: 205 18% 88%;
+  --app-light-muted-foreground: 212 10% 35%;
+  --app-light-border: 204 20% 80%;
+  --app-light-input: 204 20% 80%;
+  --app-light-ring: 199 82% 41%;
+
+  --app-dark-background: 214 34% 10%;
+  --app-dark-foreground: 200 32% 95%;
+  --app-dark-card: 214 28% 14%;
+  --app-dark-card-foreground: 200 32% 95%;
+  --app-dark-primary: 196 91% 53%;
+  --app-dark-primary-foreground: 214 30% 11%;
+  --app-dark-secondary: 214 23% 18%;
+  --app-dark-secondary-foreground: 200 32% 95%;
+  --app-dark-muted: 214 21% 16%;
+  --app-dark-muted-foreground: 205 14% 71%;
+  --app-dark-border: 213 19% 25%;
+  --app-dark-input: 213 19% 25%;
+  --app-dark-ring: 196 91% 53%;
+}
+
+:root[data-theme-palette='starship-ops'] {
+  --app-light-background: 35 31% 93%;
+  --app-light-foreground: 210 18% 14%;
+  --app-light-card: 35 28% 96%;
+  --app-light-card-foreground: 210 18% 14%;
+  --app-light-primary: 37 76% 56%;
+  --app-light-primary-foreground: 215 28% 12%;
+  --app-light-secondary: 186 46% 60%;
+  --app-light-secondary-foreground: 210 22% 16%;
+  --app-light-muted: 210 12% 86%;
+  --app-light-muted-foreground: 210 10% 36%;
+  --app-light-border: 210 11% 72%;
+  --app-light-input: 210 11% 72%;
+  --app-light-ring: 37 76% 56%;
+
+  --app-dark-background: 207 33% 6%;
+  --app-dark-foreground: 35 26% 91%;
+  --app-dark-card: 209 29% 13%;
+  --app-dark-card-foreground: 35 26% 91%;
+  --app-dark-primary: 37 76% 56%;
+  --app-dark-primary-foreground: 211 28% 10%;
+  --app-dark-secondary: 186 46% 60%;
+  --app-dark-secondary-foreground: 35 26% 91%;
+  --app-dark-muted: 207 16% 17%;
+  --app-dark-muted-foreground: 207 10% 69%;
+  --app-dark-border: 208 17% 27%;
+  --app-dark-input: 208 17% 27%;
+  --app-dark-ring: 186 46% 60%;
+}
+
+:root[data-theme-palette='luxury-ai'] {
+  --app-light-background: 37 46% 92%;
+  --app-light-foreground: 24 20% 12%;
+  --app-light-card: 37 42% 96%;
+  --app-light-card-foreground: 24 20% 12%;
+  --app-light-primary: 39 56% 63%;
+  --app-light-primary-foreground: 24 24% 11%;
+  --app-light-secondary: 213 11% 70%;
+  --app-light-secondary-foreground: 24 20% 17%;
+  --app-light-muted: 34 24% 84%;
+  --app-light-muted-foreground: 28 10% 36%;
+  --app-light-border: 35 14% 68%;
+  --app-light-input: 35 14% 68%;
+  --app-light-ring: 39 56% 63%;
+
+  --app-dark-background: 20 12% 5%;
+  --app-dark-foreground: 38 24% 92%;
+  --app-dark-card: 25 18% 8%;
+  --app-dark-card-foreground: 38 24% 92%;
+  --app-dark-primary: 39 56% 63%;
+  --app-dark-primary-foreground: 20 12% 7%;
+  --app-dark-secondary: 213 11% 70%;
+  --app-dark-secondary-foreground: 38 24% 92%;
+  --app-dark-muted: 22 16% 18%;
+  --app-dark-muted-foreground: 28 12% 69%;
+  --app-dark-border: 25 12% 28%;
+  --app-dark-input: 25 12% 28%;
+  --app-dark-ring: 39 56% 63%;
+}
+
+:root[data-theme-palette='neon-grid'] {
+  --app-light-background: 195 100% 98%;
+  --app-light-foreground: 222 42% 12%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 222 42% 12%;
+  --app-light-primary: 181 78% 54%;
+  --app-light-primary-foreground: 222 38% 10%;
+  --app-light-secondary: 313 100% 65%;
+  --app-light-secondary-foreground: 222 38% 10%;
+  --app-light-muted: 205 42% 90%;
+  --app-light-muted-foreground: 220 12% 37%;
+  --app-light-border: 204 48% 80%;
+  --app-light-input: 204 48% 80%;
+  --app-light-ring: 181 78% 54%;
+
+  --app-dark-background: 221 48% 5%;
+  --app-dark-foreground: 193 86% 95%;
+  --app-dark-card: 222 47% 11%;
+  --app-dark-card-foreground: 193 86% 95%;
+  --app-dark-primary: 181 78% 54%;
+  --app-dark-primary-foreground: 221 40% 8%;
+  --app-dark-secondary: 313 100% 65%;
+  --app-dark-secondary-foreground: 193 86% 95%;
+  --app-dark-muted: 219 25% 18%;
+  --app-dark-muted-foreground: 214 16% 70%;
+  --app-dark-border: 217 33% 27%;
+  --app-dark-input: 217 33% 27%;
+  --app-dark-ring: 181 78% 54%;
+}
+
+:root[data-theme-palette='holographic-desk'] {
+  --app-light-background: 196 100% 97%;
+  --app-light-foreground: 207 38% 13%;
+  --app-light-card: 0 0% 100%;
+  --app-light-card-foreground: 207 38% 13%;
+  --app-light-primary: 190 100% 71%;
+  --app-light-primary-foreground: 208 42% 12%;
+  --app-light-secondary: 24 100% 66%;
+  --app-light-secondary-foreground: 208 42% 12%;
+  --app-light-muted: 204 33% 90%;
+  --app-light-muted-foreground: 208 14% 37%;
+  --app-light-border: 203 28% 80%;
+  --app-light-input: 203 28% 80%;
+  --app-light-ring: 190 100% 71%;
+
+  --app-dark-background: 208 57% 7%;
+  --app-dark-foreground: 192 80% 95%;
+  --app-dark-card: 205 50% 18%;
+  --app-dark-card-foreground: 192 80% 95%;
+  --app-dark-primary: 190 100% 71%;
+  --app-dark-primary-foreground: 208 48% 10%;
+  --app-dark-secondary: 24 100% 66%;
+  --app-dark-secondary-foreground: 192 80% 95%;
+  --app-dark-muted: 207 26% 24%;
+  --app-dark-muted-foreground: 205 16% 74%;
+  --app-dark-border: 205 24% 35%;
+  --app-dark-input: 205 24% 35%;
+  --app-dark-ring: 190 100% 71%;
+}
+
+:root[data-theme-palette='imperial-tactical'] {
+  --app-light-background: 70 12% 91%;
+  --app-light-foreground: 210 18% 12%;
+  --app-light-card: 60 10% 96%;
+  --app-light-card-foreground: 210 18% 12%;
+  --app-light-primary: 39 64% 57%;
+  --app-light-primary-foreground: 210 26% 11%;
+  --app-light-secondary: 193 42% 63%;
+  --app-light-secondary-foreground: 210 18% 14%;
+  --app-light-muted: 200 8% 82%;
+  --app-light-muted-foreground: 208 8% 36%;
+  --app-light-border: 205 8% 38%;
+  --app-light-input: 205 8% 38%;
+  --app-light-ring: 39 64% 57%;
+
+  --app-dark-background: 210 16% 7%;
+  --app-dark-foreground: 60 10% 91%;
+  --app-dark-card: 210 15% 10%;
+  --app-dark-card-foreground: 60 10% 91%;
+  --app-dark-primary: 39 64% 57%;
+  --app-dark-primary-foreground: 210 16% 8%;
+  --app-dark-secondary: 193 42% 63%;
+  --app-dark-secondary-foreground: 60 10% 91%;
+  --app-dark-muted: 210 10% 18%;
+  --app-dark-muted-foreground: 205 8% 70%;
+  --app-dark-border: 205 8% 33%;
+  --app-dark-input: 205 8% 33%;
+  --app-dark-ring: 193 42% 63%;
+}
+
+:root[data-theme-palette='matrix-lattice'] {
+  --app-light-background: 120 20% 97%;
+  --app-light-foreground: 145 24% 14%;
+  --app-light-card: 120 18% 99%;
+  --app-light-card-foreground: 145 24% 14%;
+  --app-light-primary: 145 39% 30%;
+  --app-light-primary-foreground: 120 20% 98%;
+  --app-light-secondary: 145 25% 55%;
+  --app-light-secondary-foreground: 145 24% 14%;
+  --app-light-muted: 132 17% 85%;
+  --app-light-muted-foreground: 145 12% 34%;
+  --app-light-border: 145 12% 70%;
+  --app-light-input: 145 12% 70%;
+  --app-light-ring: 145 39% 30%;
+
+  --app-dark-background: 145 35% 5%;
+  --app-dark-foreground: 125 18% 92%;
+  --app-dark-card: 144 24% 8%;
+  --app-dark-card-foreground: 125 18% 92%;
+  --app-dark-primary: 132 65% 69%;
+  --app-dark-primary-foreground: 145 35% 7%;
+  --app-dark-secondary: 145 39% 30%;
+  --app-dark-secondary-foreground: 125 18% 92%;
+  --app-dark-muted: 143 16% 17%;
+  --app-dark-muted-foreground: 143 12% 68%;
+  --app-dark-border: 146 18% 28%;
+  --app-dark-input: 146 18% 28%;
+  --app-dark-ring: 132 65% 69%;
+}
+
+:root:not([data-theme-style]),
+:root[data-theme-style='soft'] {
+  --theme-card-alpha: 1;
+  --theme-border-alpha: 0.86;
+  --theme-card-blur: 0px;
+  --theme-radius-md: 0.6rem;
+  --theme-radius-lg: 0.85rem;
+  --theme-radius-xl: 1.1rem;
+  --theme-shadow-alpha: 0.16;
+  --theme-button-shadow-alpha: 0.24;
+  --theme-input-alpha: 0.76;
+  --theme-grid-opacity: 0.04;
+}
+
+:root[data-theme-style='glass'] {
+  --theme-card-alpha: 0.72;
+  --theme-border-alpha: 0.62;
+  --theme-card-blur: 14px;
+  --theme-radius-md: 0.85rem;
+  --theme-radius-lg: 1.1rem;
+  --theme-radius-xl: 1.35rem;
+  --theme-shadow-alpha: 0.22;
+  --theme-button-shadow-alpha: 0.28;
+  --theme-input-alpha: 0.64;
+  --theme-grid-opacity: 0.035;
+}
+
+:root[data-theme-style='contrast'] {
+  --theme-card-alpha: 1;
+  --theme-border-alpha: 1;
+  --theme-card-blur: 0px;
+  --theme-radius-md: 0.28rem;
+  --theme-radius-lg: 0.4rem;
+  --theme-radius-xl: 0.55rem;
+  --theme-shadow-alpha: 0.14;
+  --theme-button-shadow-alpha: 0.18;
+  --theme-input-alpha: 0.8;
+  --theme-grid-opacity: 0.03;
+}
+
+:root[data-theme-style='industrial'] {
+  --theme-card-alpha: 0.96;
+  --theme-border-alpha: 0.96;
+  --theme-card-blur: 1px;
+  --theme-radius-md: 0.24rem;
+  --theme-radius-lg: 0.35rem;
+  --theme-radius-xl: 0.45rem;
+  --theme-shadow-alpha: 0.18;
+  --theme-button-shadow-alpha: 0.22;
+  --theme-input-alpha: 0.82;
+  --theme-grid-opacity: 0.03;
+}
+
+:root[data-theme-style='luxe'] {
+  --theme-card-alpha: 0.94;
+  --theme-border-alpha: 0.78;
+  --theme-card-blur: 8px;
+  --theme-radius-md: 0.42rem;
+  --theme-radius-lg: 0.62rem;
+  --theme-radius-xl: 0.82rem;
+  --theme-shadow-alpha: 0.2;
+  --theme-button-shadow-alpha: 0.24;
+  --theme-input-alpha: 0.78;
+  --theme-grid-opacity: 0.02;
+}
+
+:root[data-theme-style='grid'] {
+  --theme-card-alpha: 0.92;
+  --theme-border-alpha: 0.94;
+  --theme-card-blur: 3px;
+  --theme-radius-md: 0.3rem;
+  --theme-radius-lg: 0.45rem;
+  --theme-radius-xl: 0.55rem;
+  --theme-shadow-alpha: 0.26;
+  --theme-button-shadow-alpha: 0.3;
+  --theme-input-alpha: 0.72;
+  --theme-grid-opacity: 0.09;
+}
+
+:root[data-theme-style='holographic'] {
+  --theme-card-alpha: 0.74;
+  --theme-border-alpha: 0.7;
+  --theme-card-blur: 16px;
+  --theme-radius-md: 0.72rem;
+  --theme-radius-lg: 0.95rem;
+  --theme-radius-xl: 1.15rem;
+  --theme-shadow-alpha: 0.26;
+  --theme-button-shadow-alpha: 0.32;
+  --theme-input-alpha: 0.64;
+  --theme-grid-opacity: 0.05;
+}
+
+:root[data-theme-style='tactical'] {
+  --theme-card-alpha: 0.95;
+  --theme-border-alpha: 0.98;
+  --theme-card-blur: 2px;
+  --theme-radius-md: 0.22rem;
+  --theme-radius-lg: 0.3rem;
+  --theme-radius-xl: 0.4rem;
+  --theme-shadow-alpha: 0.16;
+  --theme-button-shadow-alpha: 0.2;
+  --theme-input-alpha: 0.8;
+  --theme-grid-opacity: 0.035;
+}
+
+:root[data-theme-style='lattice'] {
+  --theme-card-alpha: 0.92;
+  --theme-border-alpha: 0.9;
+  --theme-card-blur: 3px;
+  --theme-radius-md: 0.3rem;
+  --theme-radius-lg: 0.4rem;
+  --theme-radius-xl: 0.5rem;
+  --theme-shadow-alpha: 0.18;
+  --theme-button-shadow-alpha: 0.22;
+  --theme-input-alpha: 0.72;
+  --theme-grid-opacity: 0.08;
+}
+
+* {
+  @apply border-border;
+  border-color: hsl(var(--border) / var(--theme-border-alpha));
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+.bg-card,
+.theme-panel,
+.theme-card,
+.theme-dialog {
+  background-color: hsl(var(--card) / var(--theme-card-alpha));
+  background-image:
+    linear-gradient(
+      180deg,
+      hsl(var(--foreground) / var(--theme-panel-highlight-alpha)),
+      transparent 42%
+    ),
+    linear-gradient(135deg, hsl(var(--primary) / var(--theme-panel-outline-alpha)), transparent 55%);
+  backdrop-filter: blur(var(--theme-card-blur));
+  box-shadow:
+    0 28px 64px -40px hsl(var(--theme-shadow-color) / var(--theme-shadow-alpha)),
+    inset 0 1px 0 hsl(var(--foreground) / var(--theme-panel-outline-alpha));
+}
+
+.theme-field,
+.theme-input,
+.theme-select,
+.theme-textarea {
+  background-color: hsl(var(--background) / var(--theme-input-alpha));
+  border-color: hsl(var(--input) / 0.78);
+  box-shadow:
+    inset 0 1px 0 hsl(var(--foreground) / 0.04),
+    0 0 0 1px hsl(var(--ring) / 0);
+}
+
+.theme-field:focus-visible,
+.theme-input:focus-visible,
+.theme-select:focus-visible,
+.theme-textarea:focus-visible {
+  box-shadow:
+    inset 0 1px 0 hsl(var(--foreground) / 0.05),
+    0 0 0 1px hsl(var(--ring) / 0.18);
+}
+
+.theme-badge {
+  border-color: hsl(var(--border) / 0.9);
+  background-color: hsl(var(--secondary) / var(--theme-badge-alpha));
+  backdrop-filter: blur(calc(var(--theme-card-blur) / 2 + 1px));
+}
+
+.theme-table-header,
+.theme-table-head {
+  background-color: hsl(var(--secondary) / var(--theme-table-header-alpha));
+  backdrop-filter: blur(calc(var(--theme-card-blur) / 2 + 2px));
+}
+
+.theme-table-row {
+  position: relative;
+}
+
+.theme-table-row:hover {
+  box-shadow: inset 3px 0 0 hsl(var(--ring) / 0.46);
+}
+
+.theme-button {
+  letter-spacing: 0.01em;
+}
+
+.theme-button[data-variant='default'] {
+  box-shadow: 0 18px 42px -26px hsl(var(--primary) / var(--theme-button-shadow-alpha));
+}
+
+.theme-button[data-variant='secondary'],
+.theme-button[data-variant='outline'],
+.theme-button[data-variant='ghost'] {
+  backdrop-filter: blur(calc(var(--theme-card-blur) / 2 + 1px));
+}
+
+.theme-button[data-variant='secondary'] {
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.theme-button[data-variant='outline'],
+.theme-button[data-variant='ghost'] {
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.2);
+}
+
+.theme-shell-sidebar,
+.theme-shell-header {
+  background-image:
+    linear-gradient(180deg, hsl(var(--foreground) / 0.05), transparent 36%),
+    linear-gradient(135deg, hsl(var(--primary) / 0.05), transparent 60%);
+  backdrop-filter: blur(calc(var(--theme-card-blur) / 2 + 8px));
+}
+
+.theme-kicker {
+  font-family: var(--theme-font-display), var(--theme-font-sans), sans-serif;
+  letter-spacing: var(--theme-label-letter-spacing);
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--theme-font-display), var(--theme-font-sans), sans-serif;
+}
+
+.rounded-md {
+  border-radius: var(--theme-radius-md);
+}
+
+.rounded-lg {
+  border-radius: var(--theme-radius-lg);
+}
+
+.rounded-xl {
+  border-radius: var(--theme-radius-xl);
+}
+
+body {
+  @apply bg-background text-foreground font-sans antialiased;
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(
+      circle at 0% 0%,
+      hsl(var(--primary) / var(--theme-glow-primary-alpha)),
+      transparent 36%
+    ),
+    radial-gradient(
+      circle at 100% 20%,
+      hsl(var(--ring) / var(--theme-glow-secondary-alpha)),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      hsl(var(--secondary) / var(--theme-glow-tertiary-alpha)),
+      transparent 42%
+    );
+}
+
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body::before {
+  z-index: -2;
+  background-image:
+    linear-gradient(hsl(var(--theme-grid-color) / var(--theme-grid-opacity)) 1px, transparent 1px),
+    linear-gradient(
+      90deg,
+      hsl(var(--theme-grid-color) / var(--theme-grid-opacity)) 1px,
+      transparent 1px
+    );
+  background-position: center;
+  background-size: var(--theme-grid-size) var(--theme-grid-size);
+  mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+}
+
+body::after {
+  z-index: -1;
+  opacity: var(--theme-atmosphere-opacity);
+  background-image:
+    linear-gradient(135deg, hsl(var(--foreground) / 0.02), transparent 45%),
+    radial-gradient(circle at 18% 12%, hsl(var(--primary) / 0.09), transparent 28%),
+    radial-gradient(circle at 82% 20%, hsl(var(--secondary) / 0.08), transparent 26%);
+}
+
+a {
+  @apply text-primary underline-offset-4 hover:underline;
+}
+
+::selection {
+  background-color: hsl(var(--primary) / 0.25);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.35);
+  border-radius: 9999px;
+}

@@ -1,0 +1,5 @@
+# Copyright (c) 2026 Homelab Control Plane contributors
+# SPDX-License-Identifier: MIT
+#
+# This configuration file defines the config workflow or settings.
+blank_issues_enabled: true

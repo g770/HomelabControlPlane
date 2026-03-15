@@ -1,0 +1,24 @@
+# Copyright (c) 2026 Homelab Control Plane contributors
+# SPDX-License-Identifier: MIT
+#
+# This file defines repository behavior for the project.
+**/node_modules
+.pnpm-store
+**/dist
+**/build
+**/coverage
+**/playwright-report
+**/test-results
+infra/compose/logs
+logs
+**/*.log
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+.DS_Store
+*.swp
+apps/agent/bin
+apps/agent/.cache

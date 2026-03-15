@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Homelab Control Plane contributors
+# SPDX-License-Identifier: MIT
+#
+# This configuration file defines the feature request workflow or settings.
+name: Feature request
+description: Propose an improvement to the control plane, agent workflow, or contributor tooling.
+title: '[Feature] '
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What operator or contributor problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the desired behavior and any constraints.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Tradeoffs
+      description: Note compatibility, rollout, or maintenance considerations.

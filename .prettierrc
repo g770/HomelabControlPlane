@@ -1,0 +1,5 @@
+# Copyright (c) 2026 Homelab Control Plane contributors
+# SPDX-License-Identifier: MIT
+#
+# This file defines repository behavior for the project.
+{ 'semi': true, 'singleQuote': true, 'trailingComma': 'all', 'printWidth': 100 }

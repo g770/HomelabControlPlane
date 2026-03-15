@@ -1,0 +1,7 @@
+# Copyright (c) 2026 Homelab Control Plane contributors
+# SPDX-License-Identifier: MIT
+#
+# This configuration file defines the pnpm workspace workflow or settings.
+packages:
+  - apps/*
+  - packages/*

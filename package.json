@@ -1,0 +1,34 @@
+{
+  "name": "homelab-control-plane",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Homelab Control Plane monorepo",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @homelab/api --filter @homelab/worker --filter @homelab/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test && bash ./scripts/go-test.sh",
+    "repo:hygiene": "bash ./scripts/repo-hygiene.sh",
+    "verify:node22": "node ./scripts/ensure-node-22.mjs",
+    "test:coverage:ts": "pnpm run verify:node22 && pnpm --filter @homelab/api prisma:generate && pnpm --filter @homelab/shared test:coverage && pnpm --filter @homelab/worker test:coverage && pnpm --filter @homelab/web test:coverage && pnpm --filter @homelab/api exec vitest run --coverage",
+    "test:coverage:go": "bash ./scripts/go-coverage-gate.sh",
+    "test:coverage": "pnpm run test:coverage:ts && pnpm run test:coverage:go",
+    "typecheck": "pnpm --filter @homelab/api prisma:generate && pnpm --filter @homelab/shared typecheck && pnpm --filter @homelab/worker typecheck && pnpm --filter @homelab/web typecheck && pnpm --filter @homelab/api exec tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write .",
+    "migrate": "pnpm --filter @homelab/api prisma:migrate",
+    "quality:preflight": "bash ./scripts/quality-preflight.sh",
+    "quality:check": "pnpm run quality:preflight && pnpm repo:hygiene && pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@typescript-eslint/eslint-plugin": "^8.23.0",
+    "@typescript-eslint/parser": "^8.23.0",
+    "eslint": "^9.20.1",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-react": "^7.37.4",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "prettier": "^3.5.0",
+    "typescript": "^5.7.3"
+  }
+}
