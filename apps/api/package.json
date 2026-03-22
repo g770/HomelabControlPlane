@@ -20,7 +20,7 @@
   "dependencies": {
     "@homelab/shared": "workspace:*",
     "@nestjs/bullmq": "^11.0.2",
-    "@nestjs/common": "^11.0.11",
+    "@nestjs/common": "^11.1.17",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.11",
     "@nestjs/jwt": "^11.0.0",
