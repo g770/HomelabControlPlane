@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@nestjs/platform-fastify": "^11.1.14",
-    "@nestjs/testing": "^11.1.14",
+    "@nestjs/testing": "^11.1.17",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.0",
     "@types/passport-jwt": "^4.0.1",
