@@ -1,90 +1,120 @@
 # TASK-002 Design: OpenAI Usage And Spend In Settings
 
-## Objective
+## Goal
 
-Add a Settings experience that lets an authenticated admin view OpenAI usage and spend without exposing secrets, while fitting the current Homelab Control Plane architecture and repo guardrails.
+Add a Settings surface that lets an authenticated admin view OpenAI usage and spend without exposing secrets, while staying inside the repo rules for auth, approvals, auditing, and allowlisted behavior.
 
-## Current State
+## Current Baseline
 
-- `apps/web/src/pages/settings-page.tsx` exposes a single `AI Provider` card that stores one installation-wide OpenAI runtime API key.
-- `apps/api/src/modules/ai/ai-provider.service.ts` persists that key in `OpsMemory` under `ai_provider_v1`, returns only safe metadata, and writes `audit_events` on updates.
-- `apps/api/src/modules/ai/ai.service.ts`, `apps/api/src/modules/checks/checks.service.ts`, `apps/api/src/modules/alerts/alerts.service.ts`, `apps/api/src/modules/service-discovery/service-discovery.service.ts`, and `apps/api/src/modules/dashboard-agent/dashboard-agent.service.ts` all depend on that runtime key for inference.
-- `apps/api/src/modules/dashboard-agent/dashboard-agent.service.ts` already captures per-call token usage for dashboard-agent runs, but that data is limited to this application's own OpenAI responses and is not an organization spend ledger.
-- There is no API or UI surface for OpenAI organization usage or cost data today.
+- `apps/web/src/pages/settings-page.tsx` already renders an installation-wide `AI Provider` card and uses React Query mutations with `confirm: true` for write actions.
+- `apps/api/src/modules/ai/ai-provider.service.ts` stores the runtime OpenAI API key in `OpsMemory` under `ai_provider_v1`, encrypts it through `SecurityService`, and emits `audit_events` on updates.
+- `packages/shared/src/schemas.ts` already defines `aiProviderConfigUpdateSchema` and `AiProviderConfigResponse`, so the new telemetry feature should follow that contract style instead of mutating the existing provider schema.
+- `apps/api/src/modules/dashboard-agent/dashboard-agent.service.ts` records per-call OpenAI token usage for dashboard-agent runs, but that is application-local telemetry, not organization-wide usage or spend.
 
-## External Constraints
+## Verified External Constraints
 
-- OpenAI exposes organization usage and cost endpoints for this data:
-  - Usage cookbook example: `https://cookbook.openai.com/examples/completions_usage_api`
-  - Costs API reference: `https://platform.openai.com/docs/api-reference/usage/costs`
-  - Administration API reference: `https://platform.openai.com/docs/api-reference/administration`
-- The cookbook and administration docs indicate organization usage/cost access requires an OpenAI Admin API key.
-- OpenAI administration docs also note Admin API keys cannot be used for non-administration endpoints, so the existing runtime inference key and the new telemetry credential must remain separate.
+- OpenAI administration endpoints require an Admin API key, and OpenAI states that Admin API keys cannot be used for non-administration endpoints. Verified from the Administration Overview on March 23, 2026: <https://developers.openai.com/api/reference/administration/overview>
+- OpenAI's official usage/cost cookbook shows the organization Costs API at `/v1/organization/costs`, the Completions Usage API, optional `project_ids`, `group_by`, and pagination through `next_page`. Verified on March 23, 2026: <https://developers.openai.com/cookbook/examples/completions_usage_api>
+- Inference from the current Administration reference: usage reporting is capability-specific rather than a single generic usage endpoint, so v1 should not assume one universal organization usage API.
 - Repo guardrails still apply:
-  - every new API route must stay behind auth
-  - secrets must never be logged or echoed back
-  - every write requires explicit approval and an `audit_events` record
+  - every new route must remain behind auth
+  - no secrets, tokens, or raw credential payloads may be logged or returned
+  - every persisted write requires explicit approval and an `audit_events` record
 
 ## Product Outcome
 
-The Settings page gains a new `OpenAI Usage & Spend` card that shows the last cached usage/spend snapshot and lets the admin explicitly refresh it from OpenAI.
+Add a second Settings card named `OpenAI Usage & Spend` directly below `AI Provider`.
 
-### User-visible behavior
+User-visible behavior:
 
-1. The admin opens `Settings`.
-2. If no OpenAI telemetry Admin API key is configured, the card explains what is missing and why the normal runtime key is insufficient.
-3. The admin can save or clear a write-only telemetry Admin API key and optionally scope reporting to specific OpenAI project IDs.
-4. After explicit confirmation, the admin can refresh the cached snapshot from OpenAI.
-5. The card displays:
-   - current scope: all projects or selected project IDs
-   - snapshot freshness: last successful refresh and stale/error state
-   - totals: spend today, spend month-to-date, spend over selected window
-   - usage totals: requests, input tokens, output tokens, cached input tokens
-   - daily chart for spend and token volume
-   - breakdown tables for model, project, and cost line item where available
-6. If the last refresh failed, the UI keeps the last successful snapshot visible and surfaces a safe error summary.
+1. Admin opens `Settings`.
+2. If telemetry is not configured, the card explains that usage/spend reporting requires a separate OpenAI Admin API key and that the existing runtime key is not sufficient.
+3. Admin can save or clear a write-only telemetry Admin API key and optionally scope reporting to one or more OpenAI project IDs.
+4. Admin can explicitly refresh the cached telemetry snapshot after confirmation.
+5. The card shows:
+   - configured scope: all projects or selected project IDs
+   - last successful refresh timestamp
+   - stale/error banner when the latest refresh failed
+   - spend today, month-to-date spend, and spend over the selected window
+   - request count, input tokens, output tokens, and cached input tokens for text-model usage
+   - daily spend and daily text-usage charts
+   - grouped breakdowns by model, project, and cost line item where upstream data exists
+6. If refresh fails, the UI keeps the last successful snapshot visible and overlays a safe error summary instead of blanking the card.
 
-## Why Cached Snapshots Instead Of Live-On-Read
+## Primary Decisions
 
-Read-only `GET` requests should stay read-only in this repo. If `GET /api/ai/usage/...` were to fetch from OpenAI and persist the response automatically, the page view would cause an unaudited write. That conflicts with the repo rule that write actions require explicit approval and an audit record.
+### 1. Keep runtime inference credentials and telemetry credentials separate
 
-This design therefore uses:
+Do not overload `ai_provider_v1`.
 
-- read-only `GET` routes to return the last cached snapshot
-- explicit confirmed `PUT` or `POST` routes for config changes and manual refreshes
-- audit records for every persisted change
+Reasoning:
 
-## Proposed Backend Design
+- the runtime key is already used by `AiService`, checks, alerts, service discovery, and dashboard-agent flows
+- OpenAI explicitly separates Admin API keys from non-administration usage
+- mixing the two credentials would either break runtime inference or over-privilege normal inference traffic
 
-### 1. Keep runtime AI config and telemetry config separate
+### 2. Use cached snapshots, not live-on-read fetches
 
-Do not overload `ai_provider_v1`. The existing key powers model inference and should keep its current semantics.
+`GET` routes should remain read-only in this repo. If a page load caused the backend to fetch from OpenAI and persist fresh data automatically, the UI would trigger an unaudited write.
 
-Add separate installation-level `OpsMemory` keys owned by the local admin account:
+Therefore v1 uses:
+
+- read-only `GET` routes for safe metadata and the last successful snapshot
+- explicit confirmed `PUT` and `POST` routes for telemetry config changes and refreshes
+- `audit_events` for every write path
+
+### 3. Scope v1 usage metrics to text-model activity and use the Costs API as the source of truth for spend
+
+Spend and usage are not symmetric in the OpenAI admin APIs.
+
+- Spend should come from the organization Costs API.
+- Token and request counts in v1 should come from the Completions Usage API, because those fields align with what this product already surfaces elsewhere and with how this repo currently uses OpenAI.
+- If an admin leaves telemetry unscoped at the organization level, spend may include non-text modalities that do not show up in token totals. The UI should call this out.
+- If the admin scopes telemetry to the project used by this application, spend and usage totals will be much easier to reconcile.
+
+This is the best first version because it is implementable against the current docs and matches the repo's actual OpenAI usage today.
+
+### 4. Store config/error metadata separately from the last successful snapshot
+
+Use two installation-level `OpsMemory` records owned by the local admin account:
 
 - `ai_usage_telemetry_v1`
 - `ai_usage_snapshot_v1`
 
-`ai_usage_telemetry_v1` payload:
+`ai_usage_telemetry_v1` holds the encrypted Admin API key, project scope, and the latest refresh status metadata.
+
+Example shape:
 
 ```json
 {
   "adminKeyEncrypted": "ciphertext",
   "projectIds": ["proj_123", "proj_456"],
-  "updatedAt": "derived from row timestamp"
+  "lastRefreshAttemptAt": "2026-03-23T10:00:00.000Z",
+  "lastRefreshSucceededAt": "2026-03-23T09:15:00.000Z",
+  "lastRefreshError": {
+    "message": "OpenAI rejected the admin credential.",
+    "occurredAt": "2026-03-23T10:00:01.000Z"
+  }
 }
 ```
 
-`ai_usage_snapshot_v1` payload:
+`ai_usage_snapshot_v1` stores only the last successful snapshot.
+
+Example shape:
 
 ```json
 {
   "source": "openai_admin_api",
+  "coverage": {
+    "spendSource": "organization.costs",
+    "usageSources": ["organization.usage.completions"],
+    "usageScope": "text_generation"
+  },
   "windowDays": 90,
   "scope": {
     "projectIds": ["proj_123", "proj_456"]
   },
-  "syncedAt": "2026-03-23T00:00:00.000Z",
+  "syncedAt": "2026-03-23T09:15:00.000Z",
   "currency": "usd",
   "totals": {
     "spendTotal": 12.34,
@@ -103,249 +133,285 @@ Add separate installation-level `OpsMemory` keys owned by the local admin accoun
     "byModel": [],
     "byProject": [],
     "byLineItem": []
-  },
-  "lastError": null
+  }
 }
 ```
 
 Why `OpsMemory` first:
 
-- it matches the current pattern for installation-wide AI settings
-- it avoids a Prisma migration for the first version
-- the feature is settings-only, so query flexibility is less important than controlled rollout
+- it matches the existing installation-wide AI settings pattern
+- it avoids a migration for the first release
+- this feature is settings-oriented and read-light
 
-If the snapshot payload becomes too large in practice, a later follow-up can move snapshots to a dedicated table.
+If the 90-day payload becomes too large, move snapshots to a dedicated table in a follow-up.
 
-### 2. Add a dedicated `AiUsageService`
+## Backend Design
 
-Create a new API module and service, for example:
+### Service shape
+
+Add a dedicated service rather than growing `AiProviderService`:
 
 - `apps/api/src/modules/ai/ai-usage.service.ts`
-- `apps/api/src/modules/ai/ai-usage.controller.ts`
+- `apps/api/src/modules/ai/ai.controller.ts` additions
+- `apps/api/src/modules/ai/ai.module.ts` wiring
 
 Responsibilities:
 
 - read safe telemetry config metadata
-- encrypt/decrypt the telemetry Admin API key through `SecurityService`
-- fetch organization usage and cost data from OpenAI
-- normalize OpenAI bucketed responses into a stable internal snapshot
-- persist refreshed snapshots only on explicit write actions
-- write safe audit events for config changes and refreshes
+- encrypt and decrypt the telemetry Admin API key through `SecurityService`
+- fetch spend and usage data from OpenAI administration endpoints
+- normalize upstream bucketed responses into a stable internal snapshot
+- preserve the last successful snapshot when refresh fails
+- emit safe `audit_events` for config writes and refresh writes
 
 Implementation note:
 
-Use direct HTTPS requests via Node `fetch` rather than assuming the current `openai` SDK exposes the administration endpoints the same way it exposes `responses.create`. This keeps the implementation explicit and easy to mock in tests.
+Use direct `fetch` calls for the administration endpoints instead of assuming the current `openai` SDK surface mirrors the admin API. This keeps the implementation explicit and easy to stub in tests.
 
-### 3. New authenticated API routes
+### API routes
 
-All routes stay under the existing authenticated `ai` controller/module surface or a sibling authenticated module.
-
-Recommended routes:
+Keep the routes under the existing authenticated `ai` controller surface.
 
 - `GET /api/ai/usage-config`
   - returns safe metadata only
-  - response:
-
-```json
-{
-  "configured": true,
-  "projectIds": ["proj_123"],
-  "updatedAt": "2026-03-23T00:00:00.000Z",
-  "lastSyncedAt": "2026-03-23T00:15:00.000Z"
-}
-```
+  - includes `configured`, `projectIds`, `updatedAt`, `lastRefreshAttemptAt`, `lastRefreshSucceededAt`, and `lastRefreshError`
 
 - `PUT /api/ai/usage-config`
-  - body includes `confirm: true`
+  - body requires `confirm: true`
   - saves or clears the Admin API key
-  - updates optional project scope
+  - updates optional `projectIds`
   - writes `audit_events`
 
 - `GET /api/ai/usage-summary?windowDays=7|30|90`
-  - returns the last cached snapshot, trimmed to the requested window
+  - returns the last successful snapshot trimmed to the requested window
+  - also returns refresh status metadata from `ai_usage_telemetry_v1`
   - never mutates storage
 
 - `POST /api/ai/usage-refresh`
-  - body includes `confirm: true`
-  - fetches fresh usage/cost data from OpenAI
-  - persists a new cached snapshot
+  - body requires `confirm: true`
+  - fetches fresh data from OpenAI
+  - updates refresh status metadata
+  - replaces `ai_usage_snapshot_v1` only after a successful fetch/normalize cycle
   - writes `audit_events`
 
-### 4. OpenAI fetch plan
+### Refresh workflow
 
 On refresh:
 
-1. Read and decrypt the telemetry Admin API key.
-2. Fetch daily usage buckets from the organization usage endpoint for the last 90 days.
-3. Fetch daily cost buckets from the organization costs endpoint for the last 90 days.
-4. Fetch grouped 30-day rollups for:
-   - model
-   - project
-   - cost line item
-5. Apply optional `project_ids` filtering to every request when the admin scoped the telemetry config.
-6. Normalize null or missing fields to `0` or `null` according to the shared schema.
-7. Persist a single snapshot record with `syncedAt`, scope, totals, series, and breakdowns.
+1. Read and decrypt the stored Admin API key.
+2. Resolve scope from `projectIds`, or use org-wide scope when empty.
+3. Fetch 90 days of daily costs from `/v1/organization/costs`.
+4. Fetch grouped cost breakdowns for the recent window using `group_by`, at minimum:
+   - `project_id`
+   - `line_item`
+5. Fetch 90 days of daily text usage from the Completions Usage API.
+6. Fetch grouped text-usage breakdowns using `group_by`, at minimum:
+   - `model`
+   - `project_id`
+7. Apply `project_ids` consistently to every upstream request when scoped.
+8. Use pagination and/or bounded request windows; do not assume a single 90-bucket call will always be accepted.
+9. Normalize missing numeric fields to `0` and optional grouping fields to `null`.
+10. Persist `ai_usage_snapshot_v1` only after the snapshot is complete.
+11. Update refresh status metadata and audit the result.
 
-If OpenAI returns an error:
+Important upstream details from the cookbook:
 
-- do not erase the previous snapshot
-- store a safe `lastError` summary inside the snapshot metadata or config metadata
-- return the failure to the client without logging raw headers, raw credentials, or full upstream payloads
+- grouped fields like `model` and `project_id` are only meaningful when `group_by` is supplied
+- admin responses are paginated with `next_page`
+- the Costs API example is daily-bucket based, with `bucket_width: "1d"`
 
-### 5. Shared contracts
+### Error handling
 
-Add new Zod schemas and exported types in `packages/shared/src/schemas.ts` and `packages/shared/src/index.ts`.
+If OpenAI returns an error or malformed data:
 
-New contract families:
+- do not delete or overwrite the previous successful snapshot
+- update only refresh status metadata with a safe summary
+- surface a safe client error message
+- never log headers, secrets, or full upstream response bodies
 
-- telemetry config request/response
+## Shared Contracts
+
+Add new shared Zod schemas in `packages/shared/src/schemas.ts` and exports in `packages/shared/src/index.ts`.
+
+Contract families:
+
+- telemetry config response
+- telemetry config update request
 - usage summary response
-- refresh request/response
-- series item schemas
+- refresh request and refresh response
+- daily series row schemas
 - breakdown row schemas
 
-Keep the current `AiProviderConfigResponse` unchanged for this task. The runtime provider card and the telemetry card should be adjacent but independent.
+Keep `AiProviderConfigResponse` unchanged. The runtime AI configuration and telemetry configuration are adjacent concerns, not one merged payload.
 
-## Proposed Frontend Design
+## Frontend Design
 
-### Settings layout
+Add a new card directly below `AI Provider` in `apps/web/src/pages/settings-page.tsx`.
 
-Add a new card directly below `AI Provider` in `apps/web/src/pages/settings-page.tsx`:
+Card copy:
 
 - title: `OpenAI Usage & Spend`
-- description: `View cached organization usage and spend from OpenAI administration APIs.`
+- description: `View cached OpenAI administration telemetry for this installation.`
 
-The card should have four UI states.
+### UI state A: telemetry not configured
 
-### State A: telemetry not configured
+Render:
 
-Show:
-
-- explanation that this feature requires an OpenAI Admin API key
-- explanation that the existing runtime key only powers inference and chat features
-- write-only password field for the telemetry Admin API key
-- optional textarea or tokenized input for project ID scoping
+- explanation that the feature requires an OpenAI Admin API key
+- explanation that the existing runtime key only powers inference
+- write-only password input for the Admin API key
+- optional project ID scoping input
 - `Save Telemetry Key` button
 
-### State B: configured, no snapshot yet
+### UI state B: configured, no successful snapshot yet
 
-Show:
+Render:
 
 - safe config metadata
 - `Refresh Usage Data` button
-- empty-state message: `No usage snapshot has been captured yet. Refresh to pull data from OpenAI.`
+- empty state copy: `No usage snapshot has been captured yet. Refresh to pull data from OpenAI.`
 
-### State C: snapshot available
+### UI state C: successful snapshot available
 
-Show:
+Render:
 
-- freshness banner with last sync timestamp
+- freshness banner with last successful sync timestamp
+- scope badge showing `All projects` or the selected project IDs
+- a short caveat when org-wide spend may include non-text usage outside the text-model token totals
 - window selector: `7d`, `30d`, `90d`
 - summary metrics:
   - spend today
   - month-to-date spend
-  - window spend total
+  - spend over selected window
   - request count
   - input tokens
   - output tokens
+  - cached input tokens
 - visualizations:
-  - daily spend bars
-  - daily token/request line or stacked area
+  - daily spend chart
+  - daily request/token chart
 - breakdown tables:
   - by model
   - by project
   - by line item
 
-### State D: partial failure / stale cache
+### UI state D: stale cache after failed refresh
 
-Show:
+Render:
 
-- previous snapshot
-- warning banner with last failure timestamp and safe message
+- previous successful snapshot
+- warning banner with failure timestamp and safe message
 - refresh CTA
+
+Mutation behavior:
+
+- save/clear config invalidates telemetry config and usage summary queries
+- refresh invalidates usage summary and telemetry config queries
+- existing `AI Provider` behavior remains unchanged
 
 ## Security And Audit Requirements
 
-- Never return the telemetry Admin API key after save.
-- Never log OpenAI authorization headers or raw upstream response bodies that may echo metadata unexpectedly.
+- All new routes must remain authenticated and must not be marked public.
+- Never return the Admin API key after save.
+- Never log authorization headers, raw secrets, or upstream payloads.
 - Require `confirm: true` on:
   - `PUT /api/ai/usage-config`
   - `POST /api/ai/usage-refresh`
 - Emit `audit_events` for:
   - `ai.usage.config.update`
   - `ai.usage.refresh`
-- Audit payloads should include only safe metadata such as:
+- Audit payloads may include only safe metadata:
   - configured `true/false`
-  - project scope count
-  - window days
+  - number of project IDs
+  - selected window
   - success/failure
-  - row ids or logical target ids
+  - logical ids or `OpsMemory` row ids
 
-## Multi-Agent Execution Plan
+## Multi-Agent Rollout
 
-Implementation should be split into serial phases so schema and API contracts stabilize before UI work starts.
+Implementation should be executed serially because this repo does not allow parallel code-modification tasks.
 
-### Agent 1: Contract And Persistence Agent
+Parent-agent instructions:
+
+1. Spawn one implementation subagent per phase.
+2. Pass this document plus the previous phase's diff and verification results into the next phase.
+3. Do not let later agents redefine shared contracts without reopening the earlier phase.
+
+### Agent 1: Contracts And Storage Agent
 
 Goal:
 
-- define shared schemas and backend persistence contracts
+- define shared types, request/response schemas, and persistence record shapes
 
-Files:
+Primary files:
 
 - `packages/shared/src/schemas.ts`
 - `packages/shared/src/index.ts`
-- `apps/web/src/types/api.ts` if generated or maintained manually in this repo
+- `apps/web/src/types/api.ts` if this repo maintains it manually
 - `apps/api/src/modules/ai/ai.module.ts`
-- new backend files for usage config/snapshot service contracts
+- any new backend contract files required by the AI module
 
 Tasks:
 
-- add Zod schemas for telemetry config, usage snapshot, refresh actions, series rows, and breakdown rows
-- add safe TypeScript exports
-- define `OpsMemory` key names and service method contracts
-- preserve the current `AiProviderConfigResponse` contract
+- add schemas for telemetry config metadata, telemetry config updates, usage summary responses, refresh responses, series rows, and breakdown rows
+- define the `ai_usage_telemetry_v1` and `ai_usage_snapshot_v1` record shapes
+- preserve `AiProviderConfigResponse` and existing dashboard-agent usage contracts
+- document any enum choices directly in schema comments if the values are not obvious
+
+Handoff to Agent 2:
+
+- exact schema names
+- final JSON shapes for both `OpsMemory` values
+- validation rules for `projectIds` and `windowDays`
 
 Verification:
 
-- shared schema tests covering valid, null, and malformed snapshot payloads
+- schema tests for valid payloads
+- schema tests for malformed snapshot data
+- schema tests for `confirm: true` write requests
 
-### Agent 2: Backend OpenAI Usage Integration Agent
+### Agent 2: Backend Telemetry Integration Agent
 
 Goal:
 
-- implement authenticated usage config and refresh APIs
+- implement authenticated telemetry config, refresh, and read APIs
 
-Files:
+Primary files:
 
-- `apps/api/src/modules/ai/ai.controller.ts` or sibling controller
-- new `apps/api/src/modules/ai/ai-usage.service.ts`
+- `apps/api/src/modules/ai/ai.controller.ts`
+- `apps/api/src/modules/ai/ai-usage.service.ts`
 - `apps/api/src/modules/ai/ai.module.ts`
-- `apps/api/test/...`
+- targeted tests in `apps/api/test`
 
 Tasks:
 
-- store encrypted telemetry Admin API keys in `OpsMemory`
-- implement safe metadata reads
-- call OpenAI organization usage and costs endpoints with `fetch`
-- normalize 90-day daily buckets plus 30-day grouped breakdowns
-- persist snapshots only on explicit refresh
-- write audit events for config changes and refreshes
-- ensure all new routes remain behind auth guards
+- implement config read/save/clear flows using `OpsMemory`, `SecurityService`, and `AuditService`
+- fetch costs and completions usage from OpenAI admin endpoints with `fetch`
+- support `project_ids`, `group_by`, and pagination
+- normalize daily series and grouped breakdowns into the shared snapshot shape
+- on failed refresh, preserve the old snapshot and update only refresh status metadata
+- ensure route handlers use the shared Zod validation pipe and require `confirm: true` on writes
+
+Handoff to Agent 3:
+
+- final route list
+- example API responses for each UI state
+- exact safe error strings that the UI should display
 
 Verification:
 
 - unit tests for config save/clear
-- unit tests for upstream normalization
-- integration-style controller tests for auth, validation, and safe responses
+- unit tests for normalization and pagination handling
+- controller tests for auth, validation, and confirm gating
+- tests proving secrets never appear in responses or audit payloads
 
 ### Agent 3: Settings UI Agent
 
 Goal:
 
-- expose telemetry config and cached snapshot data in Settings
+- expose telemetry configuration and cached usage/spend data in Settings
 
-Files:
+Primary files:
 
 - `apps/web/src/pages/settings-page.tsx`
 - `apps/web/src/types/api.ts`
@@ -353,60 +419,72 @@ Files:
 
 Tasks:
 
-- add queries for telemetry config and cached summary
-- add mutations for save/clear and refresh
-- add four-state UI behavior described above
-- add window selector and summary/breakdown rendering
-- keep the existing AI Provider card unchanged except for nearby explanatory copy if needed
+- add React Query reads for telemetry config and usage summary
+- add save/clear and refresh mutations with the same confirmation style used elsewhere on the page
+- implement the four UI states defined above
+- add the `7d`, `30d`, `90d` selector as a view filter over cached data
+- show a caveat when spend may include non-text usage outside the token totals
+- leave the existing `AI Provider` card behavior intact
+
+Handoff to Agent 4:
+
+- screenshots or DOM-level expectations for each UI state
+- any copy strings that are intentionally user-facing API contracts
 
 Verification:
 
-- UI tests for unconfigured, configured-empty, ready, and stale-error states
-- query invalidation tests after save/clear/refresh
+- tests for unconfigured, configured-empty, ready, and stale-cache states
+- tests for save/clear/refresh invalidation behavior
+- tests that the stale banner does not hide the last successful snapshot
 
-### Agent 4: Quality And Security Agent
+### Agent 4: QA And Security Agent
 
 Goal:
 
-- validate guardrails and regressions
+- validate guardrails, regressions, and cross-layer behavior
 
-Files:
+Primary files:
 
-- targeted test files in `apps/api/test` and `apps/web/test`
+- targeted API tests in `apps/api/test`
+- targeted web tests in `apps/web/test`
 
 Tasks:
 
-- verify all new routes are authenticated
-- verify secrets never appear in responses or audit payloads
-- verify write endpoints require `confirm: true`
-- verify stale cache behavior does not blank out old data after failed refresh
+- verify every new route is authenticated
+- verify write endpoints reject requests without `confirm: true`
+- verify refresh failures keep the last snapshot visible
+- verify secrets are absent from responses, logs under test, and audit payloads
+- verify project-scoped and org-wide responses both render correctly
 
 Verification:
 
-- `pnpm --filter @homelab/api test`
-- `pnpm --filter @homelab/web test`
+- targeted API test runs for the new AI telemetry coverage
+- targeted web test runs for settings coverage
+- `git diff --check` before handoff
 
-### Agent 5: Docs And Operations Agent
+### Agent 5: Operations And Follow-Through Agent
 
 Goal:
 
-- document operator setup and failure modes
+- finish operator-facing documentation and release notes after code lands
 
-Files:
+Primary files:
 
 - `docs/OPERATIONS.md`
 - `docs/ENVIRONMENT_SETUP.md`
+- release notes or changelog location used by the repo, if any
 
 Tasks:
 
-- document the difference between runtime key and telemetry Admin API key
-- document optional project scoping
-- document refresh semantics and stale snapshot behavior
-- document common OpenAI failure modes: unauthorized, missing admin privileges, empty project scope
+- document the difference between the runtime key and telemetry Admin API key
+- document project scoping and the reconciliation caveat for org-wide spend vs text-only usage totals
+- document manual refresh behavior and stale-cache behavior
+- document common failure modes: invalid Admin API key, insufficient admin privileges, empty scoped project set, and upstream pagination or rate-limit failures
 
 Verification:
 
-- doc review plus any repo hygiene checks used for markdown changes
+- markdown formatting check
+- doc review against the implemented route names and UI copy
 
 ## Suggested Test Matrix
 
@@ -417,19 +495,20 @@ Verification:
 - reject refresh without `confirm: true`
 - successful refresh with unscoped org-wide data
 - successful refresh with project-scoped data
-- upstream 401 leaves prior snapshot intact
-- upstream malformed bucket is normalized or rejected safely
-- settings page renders cached data when refresh previously succeeded
-- settings page shows stale warning when the last refresh failed
+- grouped breakdowns populate when `group_by` is supplied
+- upstream 401 leaves the prior snapshot intact
+- upstream paginated response is fully aggregated
+- malformed bucket payload is rejected or normalized safely
+- settings page renders cached data after prior success
+- settings page shows stale warning after failed refresh without blanking previous values
 
-## Rollout Notes
+## Risks And Follow-Ups
 
-- release as OpenAI-only first; do not tie this work to provider-selection changes from TASK-001
-- keep the runtime AI card stable so existing chat/analysis features are unaffected
-- prefer cached read models over live fetches to preserve auditability
+- Org-wide spend may include non-text modalities that do not map cleanly onto token/request totals. The UI should make that caveat explicit.
+- A future scheduled refresh feature would need a policy decision because repo rules require explicit approval for writes.
+- If snapshot size grows beyond what is comfortable in `OpsMemory`, the snapshot should move to a dedicated table while keeping the same API contract.
 
-## Open Questions
+## References
 
-- Should month-to-date spend be org-wide calendar month only, or should the UI also offer a billing-cycle-aligned view?
-- Do we want optional automatic scheduled refresh later, and if so, how should that interact with the repo rule requiring explicit approval for writes?
-- Is `OpsMemory` snapshot size still acceptable once 90-day daily series plus grouped breakdowns are stored, or should the implementation jump directly to a dedicated table?
+- OpenAI Administration Overview: <https://developers.openai.com/api/reference/administration/overview>
+- OpenAI usage and costs cookbook: <https://developers.openai.com/cookbook/examples/completions_usage_api>
