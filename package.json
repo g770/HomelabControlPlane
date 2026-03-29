@@ -21,7 +21,7 @@
     "quality:check": "pnpm run quality:preflight && pnpm repo:hygiene && pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@types/node": "^22.13.1",
+    "@types/node": "^25.5.0",
     "@typescript-eslint/eslint-plugin": "^8.23.0",
     "@typescript-eslint/parser": "^8.23.0",
     "eslint": "^9.20.1",
