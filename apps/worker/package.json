@@ -16,7 +16,7 @@
   "dependencies": {
     "@prisma/client": "6.4.1",
     "bullmq": "^5.42.0",
-    "ioredis": "^5.5.0",
+    "ioredis": "^5.10.1",
     "ping": "^1.0.0"
   },
   "devDependencies": {
